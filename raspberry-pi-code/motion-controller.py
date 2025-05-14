@@ -7,7 +7,7 @@ pygame.init()
 pygame.joystick.init()
 
 # Initialize serial connection to Arduino (replace with your serial port)
-arduino = serial.Serial('/dev/ttyACM0', 9600)
+arduino = serial.Serial('/dev/ttyACM0', 9600)  # Adjust to your serial port
 time.sleep(2)  # Wait for Arduino to initialize
 
 # Initialize joystick (use first joystick if connected)
@@ -16,18 +16,18 @@ joystick.init()
 
 # Function to map joystick input to motor commands
 def map_joystick_to_command():
+    y_axis = joystick.get_axis(1)  # Get Y axis (up-down)
     x_axis = joystick.get_axis(0)  # Get X axis (left-right)
-    y_axis = joystick.get_axis(1)  # Get Y axis (forward-backward)
-    
-    if y_axis < -0.5:  # Move Forward
+
+    if y_axis < -0.5:  # Move Forward (up key pressed)
         return 'F'
-    elif y_axis > 0.5:  # Move Backward
+    elif y_axis > 0.5:  # Move Backward (down key pressed)
         return 'B'
-    elif x_axis < -0.5:  # Turn Left
+    elif x_axis < -0.5:  # Turn Left (left key pressed)
         return 'L'
-    elif x_axis > 0.5:  # Turn Right
+    elif x_axis > 0.5:  # Turn Right (right key pressed)
         return 'R'
-    else:  # Stop
+    else:  # Stop the robot
         return 'S'
 
 # Main loop
