@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Robot Control - Live Camera Stream</title>
 
-    <!-- Linking Google Fonts for modern typography -->
+    <!-- Link to Google Fonts for modern typography -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
@@ -98,13 +98,23 @@
         <img src="{{ url_for('video') }}" alt="Live Camera Stream" />
     </div>
 
-    <!-- Control buttons for testing (you can add more later) -->
+    <!-- Control buttons to send motion commands to the robot -->
     <div class="controls">
-        <button class="button">Move Forward</button>
-        <button class="button">Move Backward</button>
-        <button class="button">Turn Left</button>
-        <button class="button">Turn Right</button>
-        <button class="button">Stop</button>
+        <form action="/move" method="POST">
+            <button type="submit" name="action" value="F" class="button">Move Forward</button>
+        </form>
+        <form action="/move" method="POST">
+            <button type="submit" name="action" value="B" class="button">Move Backward</button>
+        </form>
+        <form action="/move" method="POST">
+            <button type="submit" name="action" value="L" class="button">Turn Left</button>
+        </form>
+        <form action="/move" method="POST">
+            <button type="submit" name="action" value="R" class="button">Turn Right</button>
+        </form>
+        <form action="/move" method="POST">
+            <button type="submit" name="action" value="S" class="button">Stop</button>
+        </form>
     </div>
 
 </body>
