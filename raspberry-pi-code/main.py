@@ -3,7 +3,7 @@ import time
 import pygame
 import serial
 import cv2
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, request
 
 # Initialize Flask app for video streaming
 app = Flask(__name__)
@@ -12,7 +12,7 @@ app = Flask(__name__)
 arduino = serial.Serial('/dev/ttyACM0', 9600)  # Adjust to your serial port
 time.sleep(2)  # Wait for Arduino to initialize
 
-# Initialize pygame and joystick
+# Initialize pygame and joystick (for testing)
 pygame.init()
 pygame.joystick.init()
 joystick = pygame.joystick.Joystick(0)
@@ -70,6 +70,14 @@ def joystick_control():
 joystick_thread = threading.Thread(target=joystick_control)
 joystick_thread.daemon = True  # Ensure it exits when the main program exits
 joystick_thread.start()
+
+# Handle motion control from web app (HTTP requests)
+@app.route('/move', methods=['POST'])
+def move_robot():
+    action = request.form['action']
+    print(f"Received action: {action}")
+    arduino.write(action.encode())  # Send the action command to Arduino
+    return '', 204  # No content, just acknowledge the request
 
 # Run the Flask app in the main thread
 if __name__ == '__main__':
