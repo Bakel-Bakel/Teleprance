@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Control - Live Camera Stream</title>
+
+    <!-- Linking Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Basic Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Body styles */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #121212;
+            color: #fff;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        /* Header styles */
+        h1 {
+            color: #f44336; /* Red color for heading */
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        /* Video streaming container */
+        .video-container {
+            width: 80%;
+            max-width: 1200px;
+            border: 5px solid #f44336; /* Red border around the video */
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        /* Video element inside the container */
+        img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+
+        /* Control buttons */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .button {
+            background-color: #f44336;
+            color: #fff;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .button:hover {
+            background-color: #d32f2f;
+            transform: scale(1.1);
+        }
+
+        /* Responsive design for smaller screens */
+        @media screen and (max-width: 768px) {
+            .video-container {
+                width: 100%;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Robot Control - Live Camera Stream</h1>
+    
+    <div class="video-container">
+        <!-- Streaming the video -->
+        <img src="{{ url_for('video') }}" alt="Live Camera Stream" />
+    </div>
+
+    <!-- Control buttons for testing (you can add more later) -->
+    <div class="controls">
+        <button class="button">Move Forward</button>
+        <button class="button">Move Backward</button>
+        <button class="button">Turn Left</button>
+        <button class="button">Turn Right</button>
+        <button class="button">Stop</button>
+    </div>
+
+</body>
+</html>
