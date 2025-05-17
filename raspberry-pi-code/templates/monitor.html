@@ -58,6 +58,18 @@
         // TODO: Add WebRTC/WebSocket stream setup to receive user's video
         // This video should be pushed from the control phone using WebRTC
     </script>
+     <script>
+        // Stream user camera to <video> element
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(stream => {
+                document.getElementById('userCam').srcObject = stream;
+
+                // TODO: Send the stream to Raspberry Pi (e.g., WebRTC/WebSocket)
+            })
+            .catch(err => {
+                console.error("Camera access denied:", err);
+            });
+    </script>
 
 </body>
 </html>
