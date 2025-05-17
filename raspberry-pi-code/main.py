@@ -41,6 +41,11 @@ def index():
 def video():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+@app.route('/monitor')
+def monitor_view():
+    return render_template('monitor.html')
+
+
 # Define function for joystick control
 def joystick_control():
     def map_joystick_to_command():
