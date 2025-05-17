@@ -43,50 +43,55 @@
     <video id="localPreview" autoplay muted playsinline style="display: none;"></video>
 
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-    <script>
-        const isRemoteUser = window.confirm("Are you the remote user? Click OK if yes.");
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+<script>
+    const isRemoteUser = window.confirm("Are you the remote user? Click OK if yes.");
+    const socket = io();
+    const peer = new RTCPeerConnection();
 
-        const socket = io();
-        const peer = new RTCPeerConnection();
+    const remoteVideo = document.getElementById('remoteUserCam');
+    const localPreview = document.getElementById('localPreview');
 
-        const remoteVideo = document.getElementById('remoteUserCam');
-        const localPreview = document.getElementById('localPreview');
+    if (isRemoteUser) {
+        // SHOW: only localPreview
+        localPreview.style.display = 'block';
+        remoteVideo.style.display = 'none';
 
-        // Receiver side (robot): display remote stream
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(async (stream) => {
+                localPreview.srcObject = stream;
+                stream.getTracks().forEach(track => peer.addTrack(track, stream));
+
+                const offer = await peer.createOffer();
+                await peer.setLocalDescription(offer);
+                socket.emit('signal', { type: 'offer', sdp: peer.localDescription });
+            })
+            .catch(err => alert("Camera/mic error: " + err.message));
+    } else {
+        // SHOW: only remoteVideo
+        localPreview.style.display = 'none';
+        remoteVideo.style.display = 'block';
+
         peer.ontrack = (event) => {
             remoteVideo.srcObject = event.streams[0];
         };
+    }
 
-        // Signaling logic
-        socket.on('signal', async (data) => {
-            if (data.type === 'offer' && !isRemoteUser) {
-                await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                const answer = await peer.createAnswer();
-                await peer.setLocalDescription(answer);
-                socket.emit('signal', { type: 'answer', sdp: peer.localDescription });
-            }
-
-            if (data.type === 'answer' && isRemoteUser) {
-                await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            }
-        });
-
-        // Sender side (remote user)
-        if (isRemoteUser) {
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                .then(async (stream) => {
-                    localPreview.srcObject = stream;
-                    localPreview.style.display = 'block';
-
-                    stream.getTracks().forEach(track => peer.addTrack(track, stream));
-
-                    const offer = await peer.createOffer();
-                    await peer.setLocalDescription(offer);
-                    socket.emit('signal', { type: 'offer', sdp: peer.localDescription });
-                })
-                .catch(err => alert("Error accessing camera/mic: " + err.message));
+    // Common: Handle signal messages
+    socket.on('signal', async (data) => {
+        if (data.type === 'offer' && !isRemoteUser) {
+            await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+            socket.emit('signal', { type: 'answer', sdp: peer.localDescription });
         }
-    </script>
+
+        if (data.type === 'answer' && isRemoteUser) {
+            await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        }
+    });
+</script>
+
 
 </body>
 </html>
