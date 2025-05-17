@@ -12,11 +12,18 @@ app = Flask(__name__)
 arduino = serial.Serial('/dev/ttyACM0', 9600)  # Adjust to your serial port
 time.sleep(2)  # Wait for Arduino to initialize
 
-# Initialize pygame and joystick (for testing)
+# Initialize pygame and attempt joystick setup
+joystick_connected = False
 pygame.init()
 pygame.joystick.init()
-joystick = pygame.joystick.Joystick(0)
-joystick.init()
+
+try:
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+    joystick_connected = True
+    print("Joystick initialized.")
+except pygame.error as e:
+    print("No joystick detected. Web-only control enabled.")
 
 # Camera setup (USB camera)
 video_capture = cv2.VideoCapture(0)
@@ -45,44 +52,44 @@ def video():
 def monitor_view():
     return render_template('monitor.html')
 
-
 # Define function for joystick control
 def joystick_control():
     def map_joystick_to_command():
-        y_axis = joystick.get_axis(1)  # Y-axis (up-down)
-        x_axis = joystick.get_axis(0)  # X-axis (left-right)
+        y_axis = joystick.get_axis(1)
+        x_axis = joystick.get_axis(0)
 
-        if y_axis < -0.5:  # Move Forward
+        if y_axis < -0.5:
             return 'F'
-        elif y_axis > 0.5:  # Move Backward
+        elif y_axis > 0.5:
             return 'B'
-        elif x_axis < -0.5:  # Turn Left
+        elif x_axis < -0.5:
             return 'L'
-        elif x_axis > 0.5:  # Turn Right
+        elif x_axis > 0.5:
             return 'R'
-        else:  # Stop
+        else:
             return 'S'
 
     while True:
         pygame.event.pump()
         command = map_joystick_to_command()
         if command != 'S':
-            arduino.write(command.encode())  # Send command to Arduino
+            arduino.write(command.encode())
             print(f"Sent command: {command}")
-        time.sleep(0.1)  # Poll every 100 ms
+        time.sleep(0.1)
 
-# Run the joystick control function in a separate thread
-joystick_thread = threading.Thread(target=joystick_control)
-joystick_thread.daemon = True  # Ensure it exits when the main program exits
-joystick_thread.start()
+# Start joystick thread only if joystick is connected
+if joystick_connected:
+    joystick_thread = threading.Thread(target=joystick_control)
+    joystick_thread.daemon = True
+    joystick_thread.start()
 
 # Handle motion control from web app (HTTP requests)
 @app.route('/move', methods=['POST'])
 def move_robot():
     action = request.form['action']
     print(f"Received action: {action}")
-    arduino.write(action.encode())  # Send the action command to Arduino
-    return '', 204  # No content, just acknowledge the request
+    arduino.write(action.encode())  # Send command to Arduino
+    return '', 204
 
 # Run the Flask app in the main thread
 if __name__ == '__main__':
