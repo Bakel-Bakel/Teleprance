@@ -41,10 +41,12 @@
         #userCam {
             width: 100%;
             max-width: 100%;
+            height: 200px; /* or use 30vh for responsiveness */
             margin-bottom: 10px;
             border: 3px solid #f44336;
             border-radius: 8px;
         }
+
 
         .controls {
             display: flex;
@@ -92,7 +94,7 @@
     </div>
 
     <!-- User (iPhone) Camera Preview -->
-    <video id="userCam" autoplay playsinline muted></video>
+    <video id="userCam" autoplay playsinline webkit-playsinline muted></video>
 
     <!-- Robot Control Buttons -->
     <div class="controls">
