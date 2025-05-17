@@ -98,24 +98,34 @@
         <img src="{{ url_for('video') }}" alt="Live Camera Stream" />
     </div>
 
-    <!-- Control buttons to send motion commands to the robot -->
     <div class="controls">
-        <form action="/move" method="POST">
-            <button type="submit" name="action" value="F" class="button">Move Forward</button>
-        </form>
-        <form action="/move" method="POST">
-            <button type="submit" name="action" value="B" class="button">Move Backward</button>
-        </form>
-        <form action="/move" method="POST">
-            <button type="submit" name="action" value="L" class="button">Turn Left</button>
-        </form>
-        <form action="/move" method="POST">
-            <button type="submit" name="action" value="R" class="button">Turn Right</button>
-        </form>
-        <form action="/move" method="POST">
-            <button type="submit" name="action" value="S" class="button">Stop</button>
-        </form>
+        <button type="button" class="button" onclick="sendCommand('F')">Move Forward</button>
+        <button type="button" class="button" onclick="sendCommand('B')">Move Backward</button>
+        <button type="button" class="button" onclick="sendCommand('L')">Turn Left</button>
+        <button type="button" class="button" onclick="sendCommand('R')">Turn Right</button>
+        <button type="button" class="button" onclick="sendCommand('S')">Stop</button>
     </div>
+    
+    <script>
+        function sendCommand(action) {
+            fetch('/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `action=${action}`
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.error('Failed to send command');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
+    
 
 </body>
 </html>
