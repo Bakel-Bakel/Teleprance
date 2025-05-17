@@ -9,14 +9,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* Basic Reset */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
-        /* Body styles */
+    
         body {
             font-family: 'Roboto', sans-serif;
             background-color: #121212;
@@ -25,66 +23,68 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
+            justify-content: flex-start;
+            min-height: 100vh;
             text-align: center;
         }
-
-        /* Header styles */
+    
         h1 {
-            color: #f44336; /* Red color for heading */
-            font-size: 2.5rem;
+            color: #f44336;
+            font-size: 2rem;
             margin-bottom: 20px;
         }
-
-        /* Video streaming container */
+    
         .video-container {
-            width: 80%;
-            max-width: 1200px;
-            border: 5px solid #f44336; /* Red border around the video */
+            width: 100%;
+            max-width: 500px;
+            border: 4px solid #f44336;
             border-radius: 10px;
             overflow: hidden;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
-
-        /* Video element inside the container */
+    
         img {
             width: 100%;
             height: auto;
             border-radius: 10px;
         }
-
-        /* Control buttons */
+    
         .controls {
             display: flex;
+            flex-wrap: wrap;
             justify-content: center;
-            gap: 20px;
+            gap: 10px;
+            max-width: 500px;
         }
-
+    
         .button {
             background-color: #f44336;
             color: #fff;
-            padding: 15px 30px;
-            font-size: 1.2rem;
+            padding: 12px 20px;
+            font-size: 1rem;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            flex: 1 1 40%;
+            min-width: 130px;
+            max-width: 45%;
             transition: background-color 0.3s ease, transform 0.2s ease;
         }
-
+    
         .button:hover {
             background-color: #d32f2f;
-            transform: scale(1.1);
+            transform: scale(1.05);
         }
-
-        /* Responsive design for smaller screens */
-        @media screen and (max-width: 768px) {
-            .video-container {
-                width: 100%;
-            }
-
+    
+        @media screen and (max-width: 480px) {
             h1 {
-                font-size: 2rem;
+                font-size: 1.5rem;
+            }
+    
+            .button {
+                font-size: 0.9rem;
+                padding: 10px 14px;
+                min-width: 100px;
             }
         }
     </style>
@@ -99,10 +99,10 @@
     </div>
 
     <div class="controls">
-        <button type="button" class="button" onclick="sendCommand('F')">Move Forward</button>
-        <button type="button" class="button" onclick="sendCommand('B')">Move Backward</button>
-        <button type="button" class="button" onclick="sendCommand('L')">Turn Left</button>
-        <button type="button" class="button" onclick="sendCommand('R')">Turn Right</button>
+        <button type="button" class="button" onclick="sendCommand('F')">Forward</button>
+        <button type="button" class="button" onclick="sendCommand('B')">Backward</button>
+        <button type="button" class="button" onclick="sendCommand('L')">Left</button>
+        <button type="button" class="button" onclick="sendCommand('R')">Right</button>
         <button type="button" class="button" onclick="sendCommand('S')">Stop</button>
     </div>
     
@@ -110,21 +110,12 @@
         function sendCommand(action) {
             fetch('/move', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `action=${action}`
-            })
-            .then(response => {
-                if (!response.ok) {
-                    console.error('Failed to send command');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
+            }).catch(console.error);
         }
     </script>
+    
     
 
 </body>
