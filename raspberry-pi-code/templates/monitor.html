@@ -91,7 +91,12 @@
         const configuration = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                {
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
             ]
         };
 
@@ -99,7 +104,10 @@
         const remoteVideo = document.getElementById('remoteUserCam');
         const localPreview = document.getElementById('localPreview');
 
-        // Handle ICE candidates
+        // ICE candidate queueing logic
+        let remoteDescriptionSet = false;
+        let candidateQueue = [];
+
         peer.onicecandidate = (event) => {
             if (event.candidate) {
                 socket.emit('signal', {
@@ -169,20 +177,31 @@
             };
         }
 
-        // Handle signal messages
+        // Handle signal messages with ICE candidate queueing
         socket.on('signal', async (data) => {
             try {
                 if (data.type === 'offer' && !isRemoteUser) {
                     await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                    remoteDescriptionSet = true;
+                    // Add queued candidates
+                    for (const c of candidateQueue) await peer.addIceCandidate(new RTCIceCandidate(c));
+                    candidateQueue = [];
                     const answer = await peer.createAnswer();
                     await peer.setLocalDescription(answer);
                     socket.emit('signal', { type: 'answer', sdp: peer.localDescription });
                 }
                 else if (data.type === 'answer' && isRemoteUser) {
                     await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                    remoteDescriptionSet = true;
+                    for (const c of candidateQueue) await peer.addIceCandidate(new RTCIceCandidate(c));
+                    candidateQueue = [];
                 }
                 else if (data.type === 'candidate') {
-                    await peer.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    if (remoteDescriptionSet) {
+                        await peer.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    } else {
+                        candidateQueue.push(data.candidate);
+                    }
                 }
             } catch (err) {
                 errorDiv.textContent = `Signal error: ${err.message}`;
