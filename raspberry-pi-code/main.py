@@ -8,7 +8,7 @@ from flask_socketio import SocketIO, emit
 
 # Initialize Flask app and SocketIO
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Serial setup for Arduino
 arduino = serial.Serial('/dev/ttyACM0', 9600)  # Adjust to your serial port
@@ -29,18 +29,31 @@ except pygame.error as e:
 
 # Camera setup (USB camera)
 video_capture = cv2.VideoCapture(0)
+if not video_capture.isOpened():
+    print("Error: Could not open camera")
+    video_capture = cv2.VideoCapture(0)  # Try again
 
 # Define functions for video streaming
 def generate_frames():
     while True:
-        ret, frame = video_capture.read()
-        if not ret:
+        success, frame = video_capture.read()
+        if not success:
+            print("Error: Could not read frame from camera")
             break
         else:
-            _, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+            try:
+                # Resize frame for better performance
+                frame = cv2.resize(frame, (640, 480))
+                # Convert to JPEG
+                ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if not ret:
+                    continue
+                frame = buffer.tobytes()
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+            except Exception as e:
+                print(f"Error in generate_frames: {e}")
+                continue
 
 @app.route('/')
 def index():
@@ -48,7 +61,8 @@ def index():
 
 @app.route('/video')
 def video():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate_frames(),
+                   mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/monitor')
 def monitor_view():
@@ -105,6 +119,15 @@ def move_robot():
     print(f"Received action: {action}")
     arduino.write(action.encode())  # Send command to Arduino
     return '', 204
+
+# Cleanup function
+def cleanup():
+    video_capture.release()
+    cv2.destroyAllWindows()
+
+# Register cleanup function
+import atexit
+atexit.register(cleanup)
 
 # Run the Flask app with SocketIO
 if __name__ == '__main__':
