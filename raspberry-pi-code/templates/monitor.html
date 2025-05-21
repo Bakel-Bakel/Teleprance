@@ -22,153 +22,52 @@
             margin: 8px 0;
         }
 
-        .video-container {
-            width: 100%;
-            max-width: 640px;
-            position: relative;
-            margin-bottom: 20px;
-        }
-
         video, img {
             width: 100%;
+            max-width: 640px;
             border: 3px solid #f44336;
             border-radius: 10px;
-            background-color: #1a1a1a;
-        }
-
-        .status {
-            color: #4CAF50;
-            margin: 10px 0;
-        }
-
-        .error {
-            color: #f44336;
-            margin: 10px 0;
-        }
-
-        #robotCam {
-            display: block;
-            width: 100%;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
+
     <h2>📷 Robot Camera (from Raspberry Pi)</h2>
-    <div class="video-container">
-        <img id="robotCam" src="{{ url_for('video') }}" alt="Robot Camera Stream">
-    </div>
+    <img id="robotCam" src="{{ url_for('video') }}" alt="Robot Camera Stream">
 
     <h2>👤 Remote User Camera + Audio</h2>
-    <div class="video-container">
-        <video id="remoteUserCam" autoplay playsinline controls></video>
-    </div>
+    <video id="remoteUserCam" autoplay playsinline controls></video>
 
     <!-- Only visible to remote user -->
     <video id="localPreview" autoplay muted playsinline style="display: none;"></video>
 
-    <div id="status" class="status"></div>
-    <div id="error" class="error"></div>
-
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
     <script>
-        const statusDiv = document.getElementById('status');
-        const errorDiv = document.getElementById('error');
-        const robotCam = document.getElementById('robotCam');
         const isRemoteUser = window.confirm("Are you the remote user? Click OK if yes.");
-        
-        // Handle Pi camera stream errors
-        robotCam.onerror = function() {
-            errorDiv.textContent = 'Error loading Pi camera stream';
-        };
+        const socket = io();
+        const peer = new RTCPeerConnection();
 
-        // Connect to Socket.IO server
-        const socket = io({
-            transports: ['websocket'],
-            upgrade: false
-        });
-
-        // WebRTC configuration
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                {
-                    urls: 'turn:openrelay.metered.ca:80',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
-            ]
-        };
-
-        const peer = new RTCPeerConnection(configuration);
         const remoteVideo = document.getElementById('remoteUserCam');
         const localPreview = document.getElementById('localPreview');
 
-        // ICE candidate queueing logic
-        let remoteDescriptionSet = false;
-        let candidateQueue = [];
-
-        peer.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('signal', {
-                    type: 'candidate',
-                    candidate: event.candidate
-                });
-            }
-        };
-
-        // Handle connection state changes
-        peer.onconnectionstatechange = () => {
-            statusDiv.textContent = `Connection state: ${peer.connectionState}`;
-        };
-
-        // Handle ICE connection state changes
-        peer.oniceconnectionstatechange = () => {
-            statusDiv.textContent = `ICE state: ${peer.iceConnectionState}`;
-        };
-
         if (isRemoteUser) {
+            // SHOW: only localPreview
             localPreview.style.display = 'block';
             remoteVideo.style.display = 'none';
 
-            // iOS-specific constraints
-            const constraints = {
-                video: {
-                    facingMode: 'user',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: true
-            };
-
-            navigator.mediaDevices.getUserMedia(constraints)
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(async (stream) => {
                     localPreview.srcObject = stream;
-                    
-                    // Debug audio tracks
-                    const audioTracks = stream.getAudioTracks();
-                    console.log('Audio tracks:', audioTracks);
-                    if (audioTracks.length > 0) {
-                        console.log('Audio track settings:', audioTracks[0].getSettings());
-                        statusDiv.textContent = 'Audio track detected: ' + audioTracks[0].label;
-                    } else {
-                        errorDiv.textContent = 'No audio track detected';
-                    }
-                    
                     stream.getTracks().forEach(track => peer.addTrack(track, stream));
 
-                    const offer = await peer.createOffer({
-                        offerToReceiveAudio: true,
-                        offerToReceiveVideo: true
-                    });
+                    const offer = await peer.createOffer();
                     await peer.setLocalDescription(offer);
                     socket.emit('signal', { type: 'offer', sdp: peer.localDescription });
                 })
-                .catch(err => {
-                    errorDiv.textContent = `Camera/mic error: ${err.message}`;
-                    console.error('Media error:', err);
-                });
+                .catch(err => alert("Camera/mic error: " + err.message));
         } else {
+            // SHOW: only remoteVideo
             localPreview.style.display = 'none';
             remoteVideo.style.display = 'block';
 
@@ -177,50 +76,20 @@
             };
         }
 
-        // Handle signal messages with ICE candidate queueing
+        // Common: Handle signal messages
         socket.on('signal', async (data) => {
-            try {
-                if (data.type === 'offer' && !isRemoteUser) {
-                    await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                    remoteDescriptionSet = true;
-                    // Add queued candidates
-                    for (const c of candidateQueue) await peer.addIceCandidate(new RTCIceCandidate(c));
-                    candidateQueue = [];
-                    const answer = await peer.createAnswer();
-                    await peer.setLocalDescription(answer);
-                    socket.emit('signal', { type: 'answer', sdp: peer.localDescription });
-                }
-                else if (data.type === 'answer' && isRemoteUser) {
-                    await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                    remoteDescriptionSet = true;
-                    for (const c of candidateQueue) await peer.addIceCandidate(new RTCIceCandidate(c));
-                    candidateQueue = [];
-                }
-                else if (data.type === 'candidate') {
-                    if (remoteDescriptionSet) {
-                        await peer.addIceCandidate(new RTCIceCandidate(data.candidate));
-                    } else {
-                        candidateQueue.push(data.candidate);
-                    }
-                }
-            } catch (err) {
-                errorDiv.textContent = `Signal error: ${err.message}`;
-                console.error('Signal error:', err);
+            if (data.type === 'offer' && !isRemoteUser) {
+                await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                const answer = await peer.createAnswer();
+                await peer.setLocalDescription(answer);
+                socket.emit('signal', { type: 'answer', sdp: peer.localDescription });
+            }
+
+            if (data.type === 'answer' && isRemoteUser) {
+                await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
             }
         });
-
-        // Handle socket connection status
-        socket.on('connect', () => {
-            statusDiv.textContent = 'Connected to server';
-        });
-
-        socket.on('disconnect', () => {
-            statusDiv.textContent = 'Disconnected from server';
-        });
-
-        socket.on('connect_error', (error) => {
-            errorDiv.textContent = `Connection error: ${error.message}`;
-        });
     </script>
+
 </body>
 </html>
