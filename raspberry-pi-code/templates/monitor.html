@@ -29,10 +29,19 @@
             border-radius: 10px;
             margin-bottom: 20px;
         }
+
+        .status {
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+
+        .error {
+            color: #f44336;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
-
     <h2>📷 Robot Camera (from Raspberry Pi)</h2>
     <img id="robotCam" src="{{ url_for('video') }}" alt="Robot Camera Stream">
 
@@ -42,56 +51,125 @@
     <!-- Only visible to remote user -->
     <video id="localPreview" autoplay muted playsinline style="display: none;"></video>
 
+    <div id="status" class="status"></div>
+    <div id="error" class="error"></div>
+
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-<script>
-    const isRemoteUser = window.confirm("Are you the remote user? Click OK if yes.");
-    const socket = io();
-    const peer = new RTCPeerConnection();
+    <script>
+        const statusDiv = document.getElementById('status');
+        const errorDiv = document.getElementById('error');
+        const isRemoteUser = window.confirm("Are you the remote user? Click OK if yes.");
+        
+        // Connect to Socket.IO server
+        const socket = io({
+            transports: ['websocket'],
+            upgrade: false
+        });
 
-    const remoteVideo = document.getElementById('remoteUserCam');
-    const localPreview = document.getElementById('localPreview');
-
-    if (isRemoteUser) {
-        // SHOW: only localPreview
-        localPreview.style.display = 'block';
-        remoteVideo.style.display = 'none';
-
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(async (stream) => {
-                localPreview.srcObject = stream;
-                stream.getTracks().forEach(track => peer.addTrack(track, stream));
-
-                const offer = await peer.createOffer();
-                await peer.setLocalDescription(offer);
-                socket.emit('signal', { type: 'offer', sdp: peer.localDescription });
-            })
-            .catch(err => alert("Camera/mic error: " + err.message));
-    } else {
-        // SHOW: only remoteVideo
-        localPreview.style.display = 'none';
-        remoteVideo.style.display = 'block';
-
-        peer.ontrack = (event) => {
-            remoteVideo.srcObject = event.streams[0];
+        // WebRTC configuration
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
         };
-    }
 
-    // Common: Handle signal messages
-    socket.on('signal', async (data) => {
-        if (data.type === 'offer' && !isRemoteUser) {
-            await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            const answer = await peer.createAnswer();
-            await peer.setLocalDescription(answer);
-            socket.emit('signal', { type: 'answer', sdp: peer.localDescription });
+        const peer = new RTCPeerConnection(configuration);
+        const remoteVideo = document.getElementById('remoteUserCam');
+        const localPreview = document.getElementById('localPreview');
+
+        // Handle ICE candidates
+        peer.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('signal', {
+                    type: 'candidate',
+                    candidate: event.candidate
+                });
+            }
+        };
+
+        // Handle connection state changes
+        peer.onconnectionstatechange = () => {
+            statusDiv.textContent = `Connection state: ${peer.connectionState}`;
+        };
+
+        // Handle ICE connection state changes
+        peer.oniceconnectionstatechange = () => {
+            statusDiv.textContent = `ICE state: ${peer.iceConnectionState}`;
+        };
+
+        if (isRemoteUser) {
+            localPreview.style.display = 'block';
+            remoteVideo.style.display = 'none';
+
+            // iOS-specific constraints
+            const constraints = {
+                video: {
+                    facingMode: 'user',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: true
+            };
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(async (stream) => {
+                    localPreview.srcObject = stream;
+                    stream.getTracks().forEach(track => peer.addTrack(track, stream));
+
+                    const offer = await peer.createOffer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: true
+                    });
+                    await peer.setLocalDescription(offer);
+                    socket.emit('signal', { type: 'offer', sdp: peer.localDescription });
+                })
+                .catch(err => {
+                    errorDiv.textContent = `Camera/mic error: ${err.message}`;
+                    console.error('Media error:', err);
+                });
+        } else {
+            localPreview.style.display = 'none';
+            remoteVideo.style.display = 'block';
+
+            peer.ontrack = (event) => {
+                remoteVideo.srcObject = event.streams[0];
+            };
         }
 
-        if (data.type === 'answer' && isRemoteUser) {
-            await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        }
-    });
-</script>
+        // Handle signal messages
+        socket.on('signal', async (data) => {
+            try {
+                if (data.type === 'offer' && !isRemoteUser) {
+                    await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                    const answer = await peer.createAnswer();
+                    await peer.setLocalDescription(answer);
+                    socket.emit('signal', { type: 'answer', sdp: peer.localDescription });
+                }
+                else if (data.type === 'answer' && isRemoteUser) {
+                    await peer.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                }
+                else if (data.type === 'candidate') {
+                    await peer.addIceCandidate(new RTCIceCandidate(data.candidate));
+                }
+            } catch (err) {
+                errorDiv.textContent = `Signal error: ${err.message}`;
+                console.error('Signal error:', err);
+            }
+        });
 
+        // Handle socket connection status
+        socket.on('connect', () => {
+            statusDiv.textContent = 'Connected to server';
+        });
 
+        socket.on('disconnect', () => {
+            statusDiv.textContent = 'Disconnected from server';
+        });
+
+        socket.on('connect_error', (error) => {
+            errorDiv.textContent = `Connection error: ${error.message}`;
+        });
+    </script>
 </body>
 </html>

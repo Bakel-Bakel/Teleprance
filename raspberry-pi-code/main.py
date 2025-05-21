@@ -4,9 +4,11 @@ import pygame
 import serial
 import cv2
 from flask import Flask, render_template, Response, request
+from flask_socketio import SocketIO, emit
 
-# Initialize Flask app for video streaming
+# Initialize Flask app and SocketIO
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Serial setup for Arduino
 arduino = serial.Serial('/dev/ttyACM0', 9600)  # Adjust to your serial port
@@ -52,6 +54,19 @@ def video():
 def monitor_view():
     return render_template('monitor.html')
 
+# Socket.IO event handlers
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+@socketio.on('signal')
+def handle_signal(data):
+    emit('signal', data, broadcast=True, include_self=False)
+
 # Define function for joystick control
 def joystick_control():
     def map_joystick_to_command():
@@ -91,6 +106,6 @@ def move_robot():
     arduino.write(action.encode())  # Send command to Arduino
     return '', 204
 
-# Run the Flask app in the main thread
+# Run the Flask app with SocketIO
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, threaded=True)
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
